@@ -14,6 +14,7 @@
 		</div>
 </div>
 {% endif %}
+{% if cart_settings.enable_checkout %}
 <div class="mb-3" data-section="shipping-address">
 	<h6 class="text-uppercase">{{ _("Shipping Address") }}</h6>
 	<div class="row no-gutters" data-fieldname="shipping_address_name">
@@ -39,7 +40,6 @@
 	<label class="custom-control-label" for="input_same_billing">{{ _('Billing Address is same as Shipping Address') }}</label>
 </div>
 <button class="btn btn-outline-primary btn-sm mt-3 btn-new-address">{{ _("Add a new address") }}</button>
-
 <script>
 frappe.ready(() => {
 	$(document).on('click', '.address-card', (e) => {
@@ -170,3 +170,4 @@ frappe.ready(() => {
 	}
 });
 </script>
+{% endif %}
