@@ -7,11 +7,8 @@ import frappe
 from frappe import _
 from frappe.model import default_fields
 from frappe.model.document import Document
-from frappe.utils import flt, getdate, nowdate
-from frappe.utils.background_jobs import enqueue
 from frappe.model.mapper import map_doc, map_child_doc
-from frappe.utils.scheduler import is_scheduler_inactive
-from frappe.core.page.background_jobs.background_jobs import get_info
+from frappe.utils import cint, flt, add_months, today, date_diff, getdate, add_days, cstr, nowdate
 
 from six import iteritems
 
@@ -120,7 +117,6 @@ class POSInvoiceMergeLog(Document):
 						i.qty = i.qty + item.qty
 				if not found:
 					item.rate = item.net_rate
-					item.price_list_rate = 0
 					si_item = map_child_doc(item, invoice, {"doctype": "Sales Invoice Item"})
 					items.append(si_item)
 			

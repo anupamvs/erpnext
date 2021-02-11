@@ -108,7 +108,6 @@ class POSInvoice(SalesInvoice):
 				filters = { "item_code": d.item_code, "warehouse": d.warehouse }
 				if d.batch_no:
 					filters["batch_no"] = d.batch_no
-
 				reserved_serial_nos = get_pos_reserved_serial_nos(filters)
 				serial_nos = get_serial_nos(d.serial_no)
 				invalid_serial_nos = [s for s in serial_nos if s in reserved_serial_nos]
@@ -399,6 +398,21 @@ class POSInvoice(SalesInvoice):
 				}
 
 				return make_payment_request(**record)
+
+def add_return_modes(doc, pos_profile):
+	def append_payment(payment_mode):
+		payment = doc.append('payments', {})
+		payment.default = payment_mode.default
+		payment.mode_of_payment = payment_mode.parent
+		payment.account = payment_mode.default_account
+		payment.type = payment_mode.type
+
+	for pos_payment_method in pos_profile.get('payments'):
+		pos_payment_method = pos_payment_method.as_dict()
+		mode_of_payment = pos_payment_method.mode_of_payment
+		if pos_payment_method.allow_in_returns and not [d for d in doc.get('payments') if d.mode_of_payment == mode_of_payment]:
+			payment_mode = get_mode_of_payment_info(mode_of_payment, doc.company)
+			append_payment(payment_mode[0])
 
 @frappe.whitelist()
 def get_stock_availability(item_code, warehouse):

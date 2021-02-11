@@ -63,6 +63,8 @@ class POSClosingEntry(StatusUpdater):
 
 		frappe.throw(error_list, title=_("Invalid POS Invoices"), as_list=True)
 
+		frappe.throw(error_list, title=_("Invalid POS Invoices"), as_list=True)
+
 	def get_payment_reconciliation_details(self):
 		currency = frappe.get_cached_value('Company', self.company,  "default_currency")
 		return frappe.render_template("erpnext/accounts/doctype/pos_closing_entry/closing_voucher_details.html",

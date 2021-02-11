@@ -168,25 +168,13 @@
    "fieldname": "enable_variants",
    "fieldtype": "Check",
    "label": "Enable Variants"
-  },
-  {
-   "default": "0",
-   "depends_on": "eval: doc.enable_checkout == 0",
-   "fieldname": "save_quotations_as_draft",
-   "fieldtype": "Check",
-   "label": "Save Quotations as Draft"
-  },
-  {
-   "depends_on": "doc.enabled",
-   "fieldname": "store_page_docs",
-   "fieldtype": "HTML"
   }
  ],
  "icon": "fa fa-shopping-cart",
  "idx": 1,
  "issingle": 1,
  "links": [],
- "modified": "2021-02-01 18:18:54.606535",
+ "modified": "2020-08-02 18:21:43.873303",
  "modified_by": "Administrator",
  "module": "Shopping Cart",
  "name": "Shopping Cart Settings",

@@ -625,5 +625,4 @@ def fetch_serial_numbers(filters, qty, do_not_include=[]):
 				batch_join_selection=batch_join_selection,
 				batch_no_condition=batch_no_condition
 			), filters, as_dict=1)
-
 	return serial_numbers

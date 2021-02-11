@@ -529,7 +529,6 @@ frappe.ui.form.on('Stock Entry', {
 				})
 			);
 		}
-
 		for (let i in frm.doc.items) {
 			let item = frm.doc.items[i];
 
