@@ -2,7 +2,7 @@ from __future__ import unicode_literals
 import frappe, re, json
 from frappe import _
 import erpnext
-from frappe.utils import cstr, flt, date_diff, nowdate, round_based_on_smallest_currency_fraction, money_in_words
+from frappe.utils import cstr, flt, cint, date_diff, nowdate, round_based_on_smallest_currency_fraction, money_in_words, getdate
 from erpnext.regional.india import states, state_numbers
 from erpnext.controllers.taxes_and_totals import get_itemised_tax, get_itemised_taxable_amount
 from erpnext.controllers.accounts_controller import get_taxes_and_charges
@@ -693,25 +693,12 @@ def update_grand_total_for_rcm(doc, method):
 	if country != 'India':
 		return
 
-	if not doc.total_taxes_and_charges:
+	gst_tax, base_gst_tax = get_gst_tax_amount(doc)
+
+	if not base_gst_tax:
 		return
 
 	if doc.reverse_charge == 'Y':
-		gst_accounts = get_gst_accounts(doc.company)
-		gst_account_list = gst_accounts.get('cgst_account') + gst_accounts.get('sgst_account') \
-			+ gst_accounts.get('igst_account')
-
-		base_gst_tax = 0
-		gst_tax = 0
-
-		for tax in doc.get('taxes'):
-			if tax.category not in ("Total", "Valuation and Total"):
-				continue
-
-			if flt(tax.base_tax_amount_after_discount_amount) and tax.account_head in gst_account_list:
-				base_gst_tax += tax.base_tax_amount_after_discount_amount
-				gst_tax += tax.tax_amount_after_discount_amount
-
 		doc.taxes_and_charges_added -= gst_tax
 		doc.total_taxes_and_charges -= gst_tax
 		doc.base_taxes_and_charges_added -= base_gst_tax
@@ -745,7 +732,9 @@ def make_regional_gl_entries(gl_entries, doc):
 	if country != 'India':
 		return gl_entries
 
-	if not doc.total_taxes_and_charges:
+	gst_tax, base_gst_tax = get_gst_tax_amount(doc)
+
+	if not base_gst_tax:
 		return gl_entries
 
 	if doc.reverse_charge == 'Y':
@@ -775,3 +764,87 @@ def make_regional_gl_entries(gl_entries, doc):
 				)
 
 	return gl_entries
+
+def get_gst_tax_amount(doc):
+	gst_accounts = get_gst_accounts(doc.company)
+	gst_account_list = gst_accounts.get('cgst_account', []) + gst_accounts.get('sgst_account', []) \
+		+ gst_accounts.get('igst_account', [])
+
+	base_gst_tax = 0
+	gst_tax = 0
+
+	for tax in doc.get('taxes'):
+		if tax.category not in ("Total", "Valuation and Total"):
+			continue
+
+		if flt(tax.base_tax_amount_after_discount_amount) and tax.account_head in gst_account_list:
+			base_gst_tax += tax.base_tax_amount_after_discount_amount
+			gst_tax += tax.tax_amount_after_discount_amount
+
+	return gst_tax, base_gst_tax
+
+@frappe.whitelist()
+def get_regional_round_off_accounts(company, account_list):
+	country = frappe.get_cached_value('Company', company, 'country')
+
+	if country != 'India':
+		return
+
+	if isinstance(account_list, string_types):
+		account_list = json.loads(account_list)
+
+	if not frappe.db.get_single_value('GST Settings', 'round_off_gst_values'):
+		return
+
+	gst_accounts = get_gst_accounts(company)
+	gst_account_list = gst_accounts.get('cgst_account') + gst_accounts.get('sgst_account') \
+		+ gst_accounts.get('igst_account')
+
+	account_list.extend(gst_account_list)
+
+	return account_list
+
+def update_taxable_values(doc, method):
+	country = frappe.get_cached_value('Company', doc.company, 'country')
+
+	if country != 'India':
+		return
+
+	gst_accounts = get_gst_accounts(doc.company)
+
+	# Only considering sgst account to avoid inflating taxable value
+	gst_account_list = gst_accounts.get('sgst_account', []) + gst_accounts.get('sgst_account', []) \
+		+ gst_accounts.get('igst_account', [])
+
+	additional_taxes = 0
+	total_charges = 0
+	item_count = 0
+	considered_rows = []
+
+	for tax in doc.get('taxes'):
+		prev_row_id = cint(tax.row_id) - 1
+		if tax.account_head in gst_account_list and prev_row_id not in considered_rows:
+			if tax.charge_type == 'On Previous Row Amount':
+				additional_taxes += doc.get('taxes')[prev_row_id].tax_amount_after_discount_amount
+				considered_rows.append(prev_row_id)
+			if tax.charge_type == 'On Previous Row Total':
+				additional_taxes += doc.get('taxes')[prev_row_id].base_total - doc.base_net_total
+				considered_rows.append(prev_row_id)
+
+	for item in doc.get('items'):
+		if doc.apply_discount_on == 'Grand Total' and doc.discount_amount:
+			proportionate_value = item.base_amount if doc.base_total else item.qty
+			total_value = doc.base_total if doc.base_total else doc.total_qty
+		else:
+			proportionate_value = item.base_net_amount if doc.base_net_total else item.qty
+			total_value = doc.base_net_total if doc.base_net_total else doc.total_qty
+
+		applicable_charges = flt(flt(proportionate_value * (flt(additional_taxes) / flt(total_value)),
+			item.precision('taxable_value')))
+		item.taxable_value = applicable_charges + proportionate_value
+		total_charges += applicable_charges
+		item_count += 1
+
+	if total_charges != additional_taxes:
+		diff = additional_taxes - total_charges
+		doc.get('items')[item_count - 1].taxable_value += diff

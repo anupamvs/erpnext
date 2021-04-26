@@ -2001,12 +2001,13 @@
  "is_submittable": 1,
  "links": [
   {
+   "custom": 1,
    "group": "Reference",
    "link_doctype": "POS Invoice",
    "link_fieldname": "consolidated_invoice"
   }
  ],
- "modified": "2021-04-15 23:57:58.766651",
+ "modified": "2021-01-12 12:16:15.192520",
  "modified_by": "Administrator",
  "module": "Accounts",
  "name": "Sales Invoice",

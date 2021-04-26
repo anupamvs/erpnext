@@ -118,6 +118,9 @@ def make_custom_fields(update=True):
 	is_non_gst = dict(fieldname='is_non_gst', label='Is Non GST',
 		fieldtype='Check', fetch_from='item_code.is_non_gst', insert_after='is_nil_exempt',
 		print_hide=1)
+	taxable_value = dict(fieldname='taxable_value', label='Taxable Value',
+		fieldtype='Currency', insert_after='base_net_amount', hidden=1, options="Company:company:default_currency",
+		print_hide=1)
 
 	purchase_invoice_gst_category = [
 		dict(fieldname='gst_section', label='GST Details', fieldtype='Section Break',
@@ -398,9 +401,9 @@ def make_custom_fields(update=True):
 	si_einvoice_fields = [
 		dict(fieldname='irn', label='IRN', fieldtype='Data', read_only=1, insert_after='customer', no_copy=1, print_hide=1,
 			depends_on='eval:in_list(["Registered Regular", "SEZ", "Overseas", "Deemed Export"], doc.gst_category) && doc.irn_cancelled === 0'),
-		
+
 		dict(fieldname='ack_no', label='Ack. No.', fieldtype='Data', read_only=1, hidden=1, insert_after='irn', no_copy=1, print_hide=1),
-		
+
 		dict(fieldname='ack_date', label='Ack. Date', fieldtype='Data', read_only=1, hidden=1, insert_after='ack_no', no_copy=1, print_hide=1),
 
 		dict(fieldname='irn_cancelled', label='IRN Cancelled', fieldtype='Check', no_copy=1, print_hide=1,
@@ -444,7 +447,7 @@ def make_custom_fields(update=True):
 		'Supplier Quotation Item': [hsn_sac_field, nil_rated_exempt, is_non_gst],
 		'Sales Order Item': [hsn_sac_field, nil_rated_exempt, is_non_gst],
 		'Delivery Note Item': [hsn_sac_field, nil_rated_exempt, is_non_gst],
-		'Sales Invoice Item': [hsn_sac_field, nil_rated_exempt, is_non_gst],
+		'Sales Invoice Item': [hsn_sac_field, nil_rated_exempt, is_non_gst, taxable_value],
 		'Purchase Order Item': [hsn_sac_field, nil_rated_exempt, is_non_gst],
 		'Purchase Receipt Item': [hsn_sac_field, nil_rated_exempt, is_non_gst],
 		'Purchase Invoice Item': [hsn_sac_field, nil_rated_exempt, is_non_gst],
@@ -498,6 +501,14 @@ def make_custom_fields(update=True):
 				fieldtype='Link', options='Salary Component', insert_after='basic_component'),
 			dict(fieldname='arrear_component', label='Arrear Component',
 				fieldtype='Link', options='Salary Component', insert_after='hra_component'),
+			dict(fieldname='non_profit_section', label='Non Profit Settings',
+				fieldtype='Section Break', insert_after='asset_received_but_not_billed', collapsible=1),
+			dict(fieldname='company_80g_number', label='80G Number',
+				fieldtype='Data', insert_after='non_profit_section'),
+			dict(fieldname='with_effect_from', label='80G With Effect From',
+				fieldtype='Date', insert_after='company_80g_number'),
+			dict(fieldname='pan_details', label='PAN Number',
+				fieldtype='Data', insert_after='with_effect_from')
 		],
 		'Employee Tax Exemption Declaration':[
 			dict(fieldname='hra_section', label='HRA Exemption',
@@ -580,7 +591,15 @@ def make_custom_fields(update=True):
 				'options': '\nWith Payment of Tax\nWithout Payment of Tax'
 			}
 		],
-		"Member": [
+		'Member': [
+			{
+				'fieldname': 'pan_number',
+				'label': 'PAN Details',
+				'fieldtype': 'Data',
+				'insert_after': 'email_id'
+			}
+		],
+		'Donor': [
 			{
 				'fieldname': 'pan_number',
 				'label': 'PAN Details',
@@ -642,7 +661,7 @@ def set_tax_withholding_category(company):
 		pass
 
 	docs = get_tds_details(accounts, fiscal_year)
-	
+
 	for d in docs:
 		try:
 			doc = frappe.get_doc(d)
@@ -660,7 +679,7 @@ def set_tax_withholding_category(company):
 				fy_exist = [k for k in doc.get('rates') if k.get('fiscal_year')==fiscal_year]
 				if not fy_exist:
 					doc.append("rates", d.get('rates')[0])
-					
+
 			doc.flags.ignore_permissions = True
 			doc.flags.ignore_mandatory = True
 			doc.save()
